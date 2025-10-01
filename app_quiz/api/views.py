@@ -2,7 +2,7 @@ from typing import List, Dict
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated
 
 from app_auth.authentication import CookieJWTAuthentication
@@ -10,6 +10,7 @@ from app_quiz.models import Quiz, Question
 from app_quiz.api.serializers import (
     CreateQuizRequestSerializer,
     QuizWithQuestionsSerializer,
+    QuizListSerializer
 )
 from app_quiz import utils
 
@@ -88,3 +89,17 @@ class CreateQuizFromYoutubeView(APIView):
 
         resp_ser = QuizWithQuestionsSerializer(instance=quiz)
         return Response(resp_ser.data, status=status.HTTP_201_CREATED)
+
+class QuizListView(generics.ListAPIView):
+    """
+    GET /api/quizzes/
+    Returns all quizzes of the authenticated user, including questions.
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = QuizListSerializer
+
+    def get_queryset(self):
+        return Quiz.objects.filter(owner=self.request.user).prefetch_related("questions")
+
+  

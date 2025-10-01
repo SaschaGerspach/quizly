@@ -52,3 +52,24 @@ class QuizWithQuestionsSerializer(serializers.ModelSerializer):
             "questions",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "video_url", "questions"]
+
+class QuestionListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = ["id", "question_title", "question_options", "answer"]
+
+
+class QuizListSerializer(serializers.ModelSerializer):
+    questions = QuestionListSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Quiz
+        fields = [
+            "id",
+            "title",
+            "description",
+            "created_at",
+            "updated_at",
+            "video_url",
+            "questions",
+        ]
