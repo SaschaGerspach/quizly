@@ -106,7 +106,7 @@ class QuizListView(generics.ListAPIView):
         return Quiz.objects.filter(owner=self.request.user).prefetch_related("questions")
 
 
-class QuizDetailView(generics.RetrieveUpdateAPIView):
+class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET /api/quizzes/{id}/  -> eigenes Quiz inkl. Fragen
     PATCH /api/quizzes/{id}/ -> partielle Aktualisierung (title/description)
@@ -116,10 +116,8 @@ class QuizDetailView(generics.RetrieveUpdateAPIView):
     queryset = Quiz.objects.all().prefetch_related("questions")
 
     def get_serializer_class(self):
-        # Für GET liefern wir das vollständige Objekt, für PATCH verwenden wir Input-Serializer
-        if self.request.method.upper() == "PATCH":
-            return QuizPatchSerializer
-        return QuizListSerializer
+        return QuizPatchSerializer if self.request.method.upper() == "PATCH" else QuizListSerializer
+
 
     def patch(self, request, *args, **kwargs):
         # Partielle Aktualisierung mit Input-Serializer …
@@ -130,3 +128,9 @@ class QuizDetailView(generics.RetrieveUpdateAPIView):
         # … und Antwort strikt im Format von QuizListSerializer
         output = QuizListSerializer(instance=instance)
         return Response(output.data, status=status.HTTP_200_OK)
+    
+    def delete(self, request, *args, **kwargs):
+        # DRF liefert bei Destroy standardmäßig 204 mit leerem Body, wir bleiben explizit dabei.
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
