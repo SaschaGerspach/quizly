@@ -51,7 +51,9 @@ class QuizWithQuestionsSerializer(serializers.ModelSerializer):
             "video_url",
             "questions",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "video_url", "questions"]
+        read_only_fields = ["id", "created_at",
+                            "updated_at", "video_url", "questions"]
+
 
 class QuestionListSerializer(serializers.ModelSerializer):
     class Meta:
@@ -73,3 +75,19 @@ class QuizListSerializer(serializers.ModelSerializer):
             "video_url",
             "questions",
         ]
+
+
+class QuizPatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = ["title", "description"]  # nur diese Felder sind patchbar
+        extra_kwargs = {
+            "title": {"required": False, "allow_blank": False, "max_length": 200},
+            "description": {"required": False},
+        }
+
+    def validate_title(self, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Title must not be empty.")
+        return value

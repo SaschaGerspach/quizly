@@ -10,6 +10,7 @@ from app_quiz.models import Quiz, Question
 from app_quiz.api.permissions import IsQuizOwner
 from app_quiz.api.serializers import (
     CreateQuizRequestSerializer,
+    QuizPatchSerializer,
     QuizWithQuestionsSerializer,
     QuizListSerializer
 )
@@ -105,12 +106,27 @@ class QuizListView(generics.ListAPIView):
         return Quiz.objects.filter(owner=self.request.user).prefetch_related("questions")
 
 
-class QuizDetailView(generics.RetrieveAPIView):
+class QuizDetailView(generics.RetrieveUpdateAPIView):
     """
-    GET /api/quizzes/{id}/
-    Returns a single quiz with all details if owned by the user.
+    GET /api/quizzes/{id}/  -> eigenes Quiz inkl. Fragen
+    PATCH /api/quizzes/{id}/ -> partielle Aktualisierung (title/description)
     """
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated, IsQuizOwner]
-    serializer_class = QuizListSerializer
     queryset = Quiz.objects.all().prefetch_related("questions")
+
+    def get_serializer_class(self):
+        # Für GET liefern wir das vollständige Objekt, für PATCH verwenden wir Input-Serializer
+        if self.request.method.upper() == "PATCH":
+            return QuizPatchSerializer
+        return QuizListSerializer
+
+    def patch(self, request, *args, **kwargs):
+        # Partielle Aktualisierung mit Input-Serializer …
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        # … und Antwort strikt im Format von QuizListSerializer
+        output = QuizListSerializer(instance=instance)
+        return Response(output.data, status=status.HTTP_200_OK)
