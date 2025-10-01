@@ -77,6 +77,7 @@ REFRESH_COOKIE_PATH = "/"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "app_auth.authentication.CookieJWTAuthentication",
         # Wir ergänzen später noch eine kleine Klasse, die das JWT aus dem Cookie liest.
     ],
     "DEFAULT_PERMISSION_CLASSES": [

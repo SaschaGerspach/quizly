@@ -1,11 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, LoginSerializer
 from .permissions import IsAnonymousOnly
 from ..utils import create_user_from_payload, set_auth_cookies, build_user_payload
+from django.conf import settings
 
 
 class RegisterView(APIView):
@@ -14,7 +15,8 @@ class RegisterView(APIView):
     Registers a new user account.
     Returns 201 on success with a short detail message.
     """
-    permission_classes = [IsAnonymousOnly]  # matches "No permissions required" for auth'd users
+    permission_classes = [
+        IsAnonymousOnly]  # matches "No permissions required" for auth'd users
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -25,16 +27,19 @@ class RegisterView(APIView):
 
         return Response({"detail": "User created successfully!"}, status=status.HTTP_201_CREATED)
 
+
 class LoginView(APIView):
     """
     POST /api/login/
     Authenticates a user and sets JWT auth cookies.
     Returns 200 on success with a short detail message.
     """
-    permission_classes = [IsAnonymousOnly]  # matches "No permissions required" for auth'd users
+    permission_classes = [
+        IsAnonymousOnly]  # matches "No permissions required" for auth'd users
 
     def post(self, request):
-        serializer = LoginSerializer(data=request.data, context={"request": request})
+        serializer = LoginSerializer(
+            data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data["user"]
@@ -51,3 +56,39 @@ class LoginView(APIView):
         set_auth_cookies(response, str(access), str(refresh))
 
         return response
+
+
+class LogoutView(APIView):
+    """Log out user and blacklist refresh token."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+
+        refresh_token = request.COOKIES.get(
+            getattr(settings, "REFRESH_COOKIE", "refresh_token")
+        )
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+        response = Response(
+            {
+                "detail": "Log-Out successfully! All Tokens will be deleted. Refresh token is now invalid."
+            },
+            status=status.HTTP_200_OK,
+        )
+
+        # Remove cookies
+        response.delete_cookie(
+            key=getattr(settings, "AUTH_COOKIE", "access_token"),
+            path=getattr(settings, "AUTH_COOKIE_PATH", "/"),
+        )
+        response.delete_cookie(
+            key=getattr(settings, "REFRESH_COOKIE", "refresh_token"),
+            path=getattr(settings, "REFRESH_COOKIE_PATH", "/"),
+        )
+
+        return response
+    
+
