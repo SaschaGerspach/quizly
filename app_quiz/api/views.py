@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from app_auth.authentication import CookieJWTAuthentication
 from app_quiz.models import Quiz, Question
+from app_quiz.api.permissions import IsQuizOwner
 from app_quiz.api.serializers import (
     CreateQuizRequestSerializer,
     QuizWithQuestionsSerializer,
@@ -90,6 +91,7 @@ class CreateQuizFromYoutubeView(APIView):
         resp_ser = QuizWithQuestionsSerializer(instance=quiz)
         return Response(resp_ser.data, status=status.HTTP_201_CREATED)
 
+
 class QuizListView(generics.ListAPIView):
     """
     GET /api/quizzes/
@@ -102,4 +104,13 @@ class QuizListView(generics.ListAPIView):
     def get_queryset(self):
         return Quiz.objects.filter(owner=self.request.user).prefetch_related("questions")
 
-  
+
+class QuizDetailView(generics.RetrieveAPIView):
+    """
+    GET /api/quizzes/{id}/
+    Returns a single quiz with all details if owned by the user.
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsAuthenticated, IsQuizOwner]
+    serializer_class = QuizListSerializer
+    queryset = Quiz.objects.all().prefetch_related("questions")
