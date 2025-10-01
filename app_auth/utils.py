@@ -18,6 +18,7 @@ def create_user_from_payload(data: Dict) -> User:
     )
     return user
 
+
 def _lifetime_seconds(key: str) -> int:
     lifetime = settings.SIMPLE_JWT.get(key, timedelta(minutes=5))
     return int(lifetime.total_seconds()) if isinstance(lifetime, timedelta) else int(lifetime)
@@ -44,6 +45,7 @@ def set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
         path=getattr(settings, "REFRESH_COOKIE_PATH", "/"),
     )
 
+
 def build_user_payload(user: User) -> Dict[str, str]:
     """Build a simple user payload for registration response."""
     return {
@@ -51,3 +53,19 @@ def build_user_payload(user: User) -> Dict[str, str]:
         "username": user.username,
         "email": getattr(user, "email", "") or "",
     }
+
+
+def set_access_cookie(response, access_token: str) -> None:
+    """Set only the access-token cookie (spec for /api/token/refresh/)."""
+    lifetime = settings.SIMPLE_JWT.get(
+        "ACCESS_TOKEN_LIFETIME", timedelta(minutes=5))
+    max_age = int(lifetime.total_seconds())
+    response.set_cookie(
+        key=getattr(settings, "AUTH_COOKIE", "access_token"),
+        value=access_token,
+        max_age=max_age,
+        httponly=True,
+        secure=getattr(settings, "AUTH_COOKIE_SECURE", True),
+        samesite=getattr(settings, "AUTH_COOKIE_SAMESITE", "Lax"),
+        path=getattr(settings, "AUTH_COOKIE_PATH", "/"),
+    )

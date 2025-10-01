@@ -4,8 +4,8 @@ from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, LoginSerializer
-from .permissions import IsAnonymousOnly
-from ..utils import create_user_from_payload, set_auth_cookies, build_user_payload
+from .permissions import IsAnonymousOnly, RequiresValidRefreshCookie
+from ..utils import create_user_from_payload, set_auth_cookies, build_user_payload, set_access_cookie
 from django.conf import settings
 
 
@@ -92,3 +92,26 @@ class LogoutView(APIView):
         return response
     
 
+class TokenRefreshView(APIView):
+    """
+    POST /api/token/refresh/
+    Spec: reads refresh token from cookie, returns new access token
+    and sets it as cookie. No request body required.
+    """
+    permission_classes = [RequiresValidRefreshCookie]
+
+    def post(self, request):
+        cookie_name = getattr(settings, "REFRESH_COOKIE", "refresh_token")
+        raw_refresh = request.COOKIES.get(cookie_name)
+
+        # We already validated in the permission, but re-parse to mint a new access
+        refresh = RefreshToken(raw_refresh)
+        new_access = refresh.access_token
+
+        payload = {
+            "detail": "Token refreshed",
+            "access": str(new_access),
+        }
+        response = Response(payload, status=status.HTTP_200_OK)
+        set_access_cookie(response, str(new_access))
+        return response

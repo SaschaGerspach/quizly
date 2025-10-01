@@ -10,8 +10,10 @@ class RegisterSerializer(serializers.Serializer):
 
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=8, trim_whitespace=False)
-    confirmed_password = serializers.CharField(write_only=True, min_length=8, trim_whitespace=False)
+    password = serializers.CharField(
+        write_only=True, min_length=8, trim_whitespace=False)
+    confirmed_password = serializers.CharField(
+        write_only=True, min_length=8, trim_whitespace=False)
 
     def validate_username(self, value: str) -> str:
         if User.objects.filter(username=value).exists():
@@ -25,30 +27,29 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs["password"] != attrs["confirmed_password"]:
-            raise serializers.ValidationError({"confirmed_password": "Passwords do not match."})
+            raise serializers.ValidationError(
+                {"confirmed_password": "Passwords do not match."})
         return attrs
 
 
 class LoginSerializer(serializers.Serializer):
-        """
-        Validate login payload and authenticate against Django's auth backend.
-        Returns the authenticated user in validated_data['user'].
-        """
+    """
+    Validate login payload and authenticate against Django's auth backend.
+    Returns the authenticated user in validated_data['user'].
+    """
 
-        username = serializers.CharField()
-        password = serializers.CharField(write_only=True, trim_whitespace=False)
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
 
-        def validate(self, attrs):
-            user = authenticate(
-               request=self.context.get("request"),
-               username=attrs.get("username"),
-               password=attrs.get("password"),
-           )
-        
-            if not user:
-                raise AuthenticationFailed("Invalid credentials")
-        
-            attrs["user"] = user
-            return attrs
+    def validate(self, attrs):
+        user = authenticate(
+            request=self.context.get("request"),
+            username=attrs.get("username"),
+            password=attrs.get("password"),
+        )
 
-        
+        if not user:
+            raise AuthenticationFailed("Invalid credentials")
+
+        attrs["user"] = user
+        return attrs
