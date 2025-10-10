@@ -1,7 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
-from app_quiz import utils
 
 User = get_user_model()
 
@@ -54,9 +53,12 @@ def test_success_creates_quiz_and_questions(api_client, user_a, monkeypatch):
             ],
         }
 
-    # Monkeypatch the utils function so we don't depend on external services
-  
-    monkeypatch.setattr(utils, "generate_quiz_from_youtube", fake_generate)
+    # Patch the reference used inside the view, not the module import here
+    monkeypatch.setattr(
+        "app_quiz.api.views.utils.generate_quiz_from_youtube",
+        fake_generate,
+        raising=True,
+    )
 
     payload = {"url": "https://www.youtube.com/watch?v=example"}
     resp = api_client.post("/api/createQuiz/", payload, format="json")
@@ -82,8 +84,19 @@ def test_internal_error_propagates_as_500(api_client, user_a, monkeypatch):
     def fake_generate(url: str):
         raise RuntimeError("boom")
 
-  
-    monkeypatch.setattr(utils, "generate_quiz_from_youtube", fake_generate)
+    monkeypatch.setattr(
+        "app_quiz.api.views.utils.generate_quiz_from_youtube",
+        fake_generate,
+        raising=True,
+    )
 
     resp = api_client.post("/api/createQuiz/", {"url": "https://www.youtube.com/watch?v=xyz"}, format="json")
     assert resp.status_code == 500
+
+@pytest.mark.django_db
+def test_rejects_youtube_shorts(api_client, user_a):
+    login(api_client, user_a, "password123")
+    resp = api_client.post("/api/createQuiz/", {"url": "https://www.youtube.com/shorts/abc123XYZ"}, format="json")
+    assert resp.status_code == 400
+    assert "shorts" in resp.json()["url"].lower()
+

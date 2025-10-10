@@ -5,6 +5,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, LoginSerializer
 from .permissions import IsAnonymousOnly, RequiresValidRefreshCookie
+from app_auth.authentication import CookieJWTAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 from ..utils import create_user_from_payload, set_auth_cookies, build_user_payload, set_access_cookie
 from django.conf import settings
 
@@ -15,6 +18,7 @@ class RegisterView(APIView):
     Registers a new user account.
     Returns 201 on success with a short detail message.
     """
+    authentication_classes = (CookieJWTAuthentication, JWTAuthentication)
     permission_classes = [
         IsAnonymousOnly]  # matches "No permissions required" for auth'd users
 

@@ -1,12 +1,11 @@
 from typing import List, Dict
+import logging
 
+from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated
-
 from app_auth.authentication import CookieJWTAuthentication
-from app_quiz.models import Quiz, Question
 from app_quiz.api.permissions import IsQuizOwner
 from app_quiz.api.serializers import (
     CreateQuizRequestSerializer,
@@ -14,8 +13,12 @@ from app_quiz.api.serializers import (
     QuizWithQuestionsSerializer,
     QuizListSerializer
 )
-from app_quiz import utils
+from app_quiz.models import Quiz, Question
+import app_quiz.utils as utils
+from app_quiz.utils import generate_quiz_from_youtube
 
+
+logger = logging.getLogger(__name__)
 
 class CreateQuizFromYoutubeView(APIView):
     """
@@ -40,6 +43,10 @@ class CreateQuizFromYoutubeView(APIView):
             title = (generated.get("title") or "").strip()
             description = generated.get("description") or ""
             questions_data: List[Dict] = generated.get("questions") or []
+
+        except ValueError as e:
+            return Response({"url": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         except NotImplementedError as e:
             # Explicit 500 per spec if internal logic not implemented
             return Response(
@@ -48,6 +55,8 @@ class CreateQuizFromYoutubeView(APIView):
             )
         except Exception:
             # Do not leak internals; return 500 per spec
+            # <- zeigt vollständigen Trace im Terminal
+            logger.exception("createQuiz failed")
             return Response(
                 {"detail": "Internal server error."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -92,7 +101,6 @@ class CreateQuizFromYoutubeView(APIView):
         resp_ser = QuizWithQuestionsSerializer(instance=quiz)
         return Response(resp_ser.data, status=status.HTTP_201_CREATED)
 
-
 class QuizListView(generics.ListAPIView):
     """
     GET /api/quizzes/
@@ -104,7 +112,6 @@ class QuizListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Quiz.objects.filter(owner=self.request.user).prefetch_related("questions")
-
 
 class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -118,17 +125,17 @@ class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_serializer_class(self):
         return QuizPatchSerializer if self.request.method.upper() == "PATCH" else QuizListSerializer
 
-
     def patch(self, request, *args, **kwargs):
         # Partielle Aktualisierung mit Input-Serializer …
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         # … und Antwort strikt im Format von QuizListSerializer
         output = QuizListSerializer(instance=instance)
         return Response(output.data, status=status.HTTP_200_OK)
-    
+
     def delete(self, request, *args, **kwargs):
         # DRF liefert bei Destroy standardmäßig 204 mit leerem Body, wir bleiben explizit dabei.
         instance = self.get_object()

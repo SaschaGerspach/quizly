@@ -2,17 +2,21 @@ from django.conf import settings
 from rest_framework.permissions import BasePermission
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+import logging
 
+logger = logging.getLogger(__name__)
 
 class IsAnonymousOnly(BasePermission):
     """
     Allow access only to unauthenticated users.
     Useful for register/login endpoints.
     """
-
+    message = "You are already authenticated."
     def has_permission(self, request, view) -> bool:
-        return not request.user or not request.user.is_authenticated
-    
+        is_auth = bool(getattr(request, "user", None) and request.user.is_authenticated)
+        logger.info("IsAnonymousOnly: is_authenticated=%s path=%s", is_auth, request.path)
+        return not is_auth
+
 class RequiresValidRefreshCookie(BasePermission):
     """
     Allow only if a valid refresh token cookie is present.
