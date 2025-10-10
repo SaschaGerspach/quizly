@@ -1,23 +1,22 @@
-# syntax=docker/dockerfile:1
 FROM python:3
 
-
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg git curl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
+COPY requirements.txt .
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir gunicorn
 
+COPY . .
 
-COPY requirements.txt ./
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-RUN /usr/local/bin/python -m pip install --upgrade pip
+EXPOSE 8000
 
-RUN pip install --no-cache-dir -r requirements.txt
-
-
-
-COPY . . 
-
-CMD ["python3", "manage.py", "runserver", "0.0.0.0:8001"]
-
-
-C:\Users\Anwender\Dokumente\Developer_Akademie\quizly
+CMD sh -c "python manage.py migrate --noinput && \
+           gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3"
