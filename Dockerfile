@@ -1,4 +1,5 @@
-FROM python:3
+FROM python:3.11-slim
+
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg git curl && \
@@ -8,6 +9,7 @@ WORKDIR /usr/src/app
 
 COPY requirements.txt .
 RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.3.1 && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir gunicorn
 
@@ -16,7 +18,7 @@ COPY . .
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-EXPOSE 8000
+EXPOSE 8001
 
 CMD sh -c "python manage.py migrate --noinput && \
-           gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+           gunicorn core.wsgi:application --bind 0.0.0.0:8001 --workers 3"

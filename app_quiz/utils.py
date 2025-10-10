@@ -11,13 +11,27 @@ from urllib.parse import parse_qs, urlparse
 from yt_dlp.utils import DownloadError
 
 import google.generativeai as genai
-import whisper
 import yt_dlp
-
 
 # --------------------------- helpers ---------------------------
 
 _YT_HOSTS = ("youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be")
+
+# Whisper lazy load (groß & RAM-hungrig -> nur laden, wenn wirklich gebraucht)
+_WHISPER_MODEL_OBJ = None  # globaler Cache für das geladene Whisper-Modell
+
+
+def _get_whisper_model():
+    """
+    Lädt das Whisper-Modell erst bei Bedarf und cached es pro Prozess.
+    Nutzt WHISPER_MODEL aus der Umgebung (Default: 'base').
+    """
+    global _WHISPER_MODEL_OBJ
+    if _WHISPER_MODEL_OBJ is None:
+        import whisper  # Heavy import nur hier!
+        model_name = os.getenv("WHISPER_MODEL", "base")
+        _WHISPER_MODEL_OBJ = whisper.load_model(model_name)
+    return _WHISPER_MODEL_OBJ
 
 
 def _parse_video_id(url: str) -> Tuple[str, str]:
@@ -39,7 +53,7 @@ def _parse_video_id(url: str) -> Tuple[str, str]:
     else:
         if path.lower().startswith("/shorts/"):
             raise ValueError("YouTube Shorts are not supported.")
-        # support /shorts/<id> and /live/<id>
+        # support /live/<id>
         m = re.match(r"^/live/([A-Za-z0-9_-]{5,})", path)
         if m:
             vid = m.group(1)
@@ -52,6 +66,7 @@ def _parse_video_id(url: str) -> Tuple[str, str]:
 
     return vid, f"https://www.youtube.com/watch?v={vid}"
 
+
 def _download_audio_to(tempdir: str, video_url: str) -> str:
     """
     Download audio using yt_dlp into tempdir as .m4a (requires ffmpeg).
@@ -61,9 +76,12 @@ def _download_audio_to(tempdir: str, video_url: str) -> str:
     outtmpl = os.path.join(tempdir, "audio.%(ext)s")
 
     # Allow overriding UA/cookies via env for local quirks
-    ua = os.getenv("YTDLP_UA", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                               "AppleWebKit/537.36 (KHTML, like Gecko) "
-                               "Chrome/124.0.0.0 Safari/537.36")
+    ua = os.getenv(
+        "YTDLP_UA",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36",
+    )
     cookies_browser = os.getenv("YTDLP_COOKIES_FROM_BROWSER", "").strip().lower()  # e.g. "chrome", "edge", "firefox"
 
     ydl_opts = {
@@ -88,8 +106,7 @@ def _download_audio_to(tempdir: str, video_url: str) -> str:
                 "preferredquality": "192",
             }
         ],
-        # You can uncomment this if your network has IPv6 issues:
-        # "force_ip": "v4",
+        # "force_ip": "v4",  # Optional: bei IPv6-Problemen
     }
 
     if cookies_browser in {"chrome", "edge", "firefox"}:
@@ -100,7 +117,7 @@ def _download_audio_to(tempdir: str, video_url: str) -> str:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([video_url])
     except DownloadError as e:
-        # Make the error explicit in logs; the view still returns 500 as per spec
+        # Deutliche Fehlermeldung; View gibt laut Spec weiterhin 500 zurück
         raise RuntimeError(f"yt-dlp failed to fetch audio (possible 403): {e}") from e
 
     for fname in os.listdir(tempdir):
@@ -109,12 +126,12 @@ def _download_audio_to(tempdir: str, video_url: str) -> str:
     raise RuntimeError("Audio download succeeded but no .m4a file was produced.")
 
 
-
 def _transcribe(audio_path: str) -> str:
     """
-    Transcribe audio to text using Whisper.
+    Transcribe audio to text using Whisper (lazy-loaded).
     """
-    model = whisper.load_model("small")  # "base" schneller, "small" bessere Qualität
+    model = _get_whisper_model()
+    # fp16=False für CPU-Container/ohne GPU stabiler
     result = model.transcribe(audio_path, temperature=0, fp16=False)
     text = (result.get("text") or "").strip()
     if not text:
@@ -159,34 +176,38 @@ def _call_gemini(prompt: str, api_key: str) -> str:
     """
     model_name = os.getenv("GEMINI_MODEL")
     if not model_name:
-        # 2) Auto-Detect: nimm ein verfügbares Modell mit generateContent
+        # Auto-Detect ein passendes Modell mit generateContent
         try:
             avail = [
                 (m.name.split("/")[-1], getattr(m, "supported_generation_methods", []))
                 for m in genai.list_models()
             ]
             supported = [name for (name, methods) in avail if "generateContent" in methods]
-            # Bevorzugte Reihenfolge:
             preferred = [
-                "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest",
-                "gemini-pro-latest", "gemini-2.5-pro", "gemini-2.0-pro"
+                "gemini-2.5-flash",
+                "gemini-2.0-flash",
+                "gemini-flash-latest",
+                "gemini-pro-latest",
+                "gemini-2.5-pro",
+                "gemini-2.0-pro",
             ]
             for cand in preferred:
                 if cand in supported:
                     model_name = cand
                     break
             if not model_name and supported:
-                model_name = supported[0]  # irgendein unterstütztes Modell
+                model_name = supported[0]
         except Exception:
-            # Fallback, falls list_models nicht klappt
             model_name = "gemini-flash-latest"
 
     model = genai.GenerativeModel(model_name)
     resp = model.generate_content(prompt)
 
     txt = (getattr(resp, "text", None) or "").strip()
+    # Entferne evtl. ```json fences
     txt = re.sub(r"^```json\s*|\s*```$", "", txt, flags=re.IGNORECASE | re.MULTILINE)
     return txt
+
 
 def _validate_and_fix(payload: Dict) -> Dict:
     """
@@ -197,7 +218,7 @@ def _validate_and_fix(payload: Dict) -> Dict:
     questions_in = payload.get("questions") or []
     out_questions: List[Dict] = []
 
-    rng = random.Random(42)
+    rng = random.Random(42)  # (bereit für evtl. Randomisierung/Shuffle)
 
     for q in questions_in:
         qt = (q.get("question_title") or "").strip()
