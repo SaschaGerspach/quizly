@@ -1,15 +1,14 @@
-FROM python:3.11-slim
-
+FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg git curl && \
     rm -rf /var/lib/apt/lists/*
 
+
 WORKDIR /usr/src/app
 
 COPY requirements.txt .
 RUN python -m pip install --upgrade pip && \
-    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.3.1 && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir gunicorn
 
