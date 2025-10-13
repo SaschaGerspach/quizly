@@ -1,5 +1,8 @@
 from django.conf import settings
+from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
 
 class CookieJWTAuthentication(JWTAuthentication):
     """
@@ -21,3 +24,29 @@ class CookieJWTAuthentication(JWTAuthentication):
         validated_token = self.get_validated_token(raw_token)
         user = self.get_user(validated_token)
         return (user, validated_token)
+
+class EmailOrUsernameBackend(ModelBackend):
+    """
+    Allows login with either username or email address.
+    Automatically used by Django when added in settings.py..
+    """
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        User = get_user_model()
+
+        # Falls das Frontend "email" statt "username" sendet
+        if username is None:
+            username = kwargs.get("email")
+
+        if not username or not password:
+            return None
+
+        try:
+            # Wenn ein @ enthalten ist, wird nach E-Mail gesucht
+            if "@" in username:
+                user = User.objects.get(email__iexact=username)
+            else:
+                user = User.objects.get(username__iexact=username)
+        except User.DoesNotExist:
+            return None
+
+        return user if user.check_password(password) else None

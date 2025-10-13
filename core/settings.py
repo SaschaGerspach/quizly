@@ -134,3 +134,8 @@ TEMPLATES = [
         },
     },
 ]
+
+AUTHENTICATION_BACKENDS = [
+    "app_auth.authentication.EmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",  # Backup-Fallback
+]
