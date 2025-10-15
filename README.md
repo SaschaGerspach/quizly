@@ -1,5 +1,7 @@
 # Quizly Backend
 
+> **Tech stack:** Python 3.13.5 · Django 5.2.6 · Django REST Framework 3.16.1
+
 Quizly is a Django REST API that transforms YouTube videos into interactive, multiple-choice quizzes. The pipeline downloads source videos with `yt-dlp`, extracts audio via `ffmpeg`, transcribes speech using Whisper, and asks Google Gemini to generate the questions.
 
 ---
@@ -76,7 +78,7 @@ Quizly powers a frontend that lets authenticated users create, review, and manag
    ```
 
 5. **Create `.env`**
-   Copy or adapt the template from [Environment Variables](#environment-variables).
+   Copy or adapt the template from [Environment Variables](#environment-variables) section below.
 
 6. **Run database migrations**
    ```bash
@@ -112,6 +114,24 @@ GEMINI_MODEL=gemini-2.0-flash
 FFMPEG_PATH=ffmpeg
 WHISPER_MODEL=base
 ```
+
+### Generating a Secret Key
+
+Django requires a unique DJANGO_SECRET_KEY for cryptographic signing.
+If your .env still contains change-me, generate a new one using:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+
+### API Access Setup
+
+To use the quiz generation feature, you’ll need your own Google Gemini API key.
+You can obtain one from your [Google AI Studio account](https://makersuite.google.com/app/apikey).
+
+---
+
 
 Additional knobs exposed in `core/settings.py`:
 
