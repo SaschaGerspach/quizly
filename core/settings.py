@@ -15,19 +15,15 @@ DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 INSTALLED_APPS = [
-    # Django
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Third party
     "rest_framework",
     "corsheaders",
-    # Optional: Blacklist, falls wir Refresh Tokens invalidieren wollen
     "rest_framework_simplejwt.token_blacklist",
-    # Local apps
     "app_auth",
     "app_quiz",
 ]
@@ -47,7 +43,6 @@ ROOT_URLCONF = "core.urls"
 WSGI_APPLICATION = "core.wsgi.application"
 ASGI_APPLICATION = "core.asgi.application"
 
-# Datenbank vorerst SQLite (später gern Postgres)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -55,26 +50,23 @@ DATABASES = {
     }
 }
 
-# Static/Media (einfacher Start)
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.getenv("MEDIA_ROOT", str(BASE_DIR / "media"))
 
-# CORS/CSRF für Cookie-Auth
 CORS_ALLOWED_ORIGINS = [o for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o]
-CORS_ALLOW_CREDENTIALS = True  # wichtig für Cookies
+CORS_ALLOW_CREDENTIALS = True  
 
 CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
-CSRF_COOKIE_SECURE = not DEBUG                       # nur über HTTPS senden
+CSRF_COOKIE_SECURE = not DEBUG                     
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
 SESSION_COOKIE_SAMESITE = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
 
-# JWT in HttpOnly-Cookies (Namen/Policy, die Views nutzen)
 AUTH_COOKIE = os.getenv("JWT_ACCESS_COOKIE_NAME", "access_token")
 REFRESH_COOKIE = os.getenv("JWT_REFRESH_COOKIE_NAME", "refresh_token")
-AUTH_COOKIE_SAMESITE = os.getenv("JWT_COOKIE_SAMESITE", "Lax")  # "Lax" oder "Strict"
+AUTH_COOKIE_SAMESITE = os.getenv("JWT_COOKIE_SAMESITE", "Lax") 
 AUTH_COOKIE_SECURE = not DEBUG
 AUTH_COOKIE_PATH = "/"
 REFRESH_COOKIE_PATH = "/"
@@ -83,14 +75,12 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "app_auth.authentication.CookieJWTAuthentication",
-        # Wir ergänzen später noch eine kleine Klasse, die das JWT aus dem Cookie liest.
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
 }
 
-# SimpleJWT – Laufzeiten aus Env
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
         minutes=int(os.getenv("JWT_ACCESS_LIFETIME_MIN", "15"))
@@ -100,11 +90,10 @@ SIMPLE_JWT = {
     ),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
-    "AUTH_HEADER_TYPES": ("Bearer",),  # bleibt, auch wenn wir Cookies setzen
+    "AUTH_HEADER_TYPES": ("Bearer",), 
     "UPDATE_LAST_LOGIN": True,
 }
 
-# Logging (kurz und hilfreich für Dev)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -112,8 +101,7 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "INFO"},
 }
 
-# Quiz-Pipeline Env (nur als Platzhalter, wir nutzen sie später)
-FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")  # global installiert → Name reicht
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")  
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 GOOGLE_GENAI_API_KEY = os.getenv("GOOGLE_GENAI_API_KEY", "")
 
@@ -122,8 +110,8 @@ GOOGLE_GENAI_API_KEY = os.getenv("GOOGLE_GENAI_API_KEY", "")
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],  # optional: eigener Templates-Ordner
-        "APP_DIRS": True,                  # lädt templates/ in Apps automatisch
+        "DIRS": [BASE_DIR / "templates"],  
+        "APP_DIRS": True,                  
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
