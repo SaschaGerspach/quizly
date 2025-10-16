@@ -10,6 +10,7 @@ class QuestionInline(admin.TabularInline):
     fields = ("question_title", "question_options", "answer", "created_at", "updated_at")
     readonly_fields = ("created_at", "updated_at")
     show_change_link = True
+    
 
 
 @admin.register(Quiz)

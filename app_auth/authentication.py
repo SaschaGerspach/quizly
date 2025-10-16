@@ -28,7 +28,7 @@ class CookieJWTAuthentication(JWTAuthentication):
 class EmailOrUsernameBackend(ModelBackend):
     """
     Allows login with either username or email address.
-    Automatically used by Django when added in settings.py..
+    Automatically used by Django when added in settings.py.
     """
     def authenticate(self, request, username=None, password=None, **kwargs):
         User = get_user_model()

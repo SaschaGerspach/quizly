@@ -32,7 +32,7 @@ def set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
         max_age=_lifetime_seconds("ACCESS_TOKEN_LIFETIME"),
         httponly=True,
         secure=getattr(settings, "AUTH_COOKIE_SECURE", True),
-        samesite=getattr(settings, "AUTH_COOKIE_SAMESITE", "Lax"),
+        samesite=getattr(settings, "AUTH_COOKIE_SAMESITE", "None"),
         path=getattr(settings, "AUTH_COOKIE_PATH", "/"),
     )
     response.set_cookie(
@@ -41,7 +41,7 @@ def set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
         max_age=_lifetime_seconds("REFRESH_TOKEN_LIFETIME"),
         httponly=True,
         secure=getattr(settings, "AUTH_COOKIE_SECURE", True),
-        samesite=getattr(settings, "AUTH_COOKIE_SAMESITE", "Lax"),
+        samesite=getattr(settings, "AUTH_COOKIE_SAMESITE", "None"),
         path=getattr(settings, "REFRESH_COOKIE_PATH", "/"),
     )
 
