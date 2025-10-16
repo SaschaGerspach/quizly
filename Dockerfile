@@ -20,4 +20,4 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 EXPOSE 8001
 
 CMD sh -c "python manage.py migrate --noinput && \
-           gunicorn core.wsgi:application --bind 0.0.0.0:8001 --workers 3"
+           gunicorn core.wsgi:application --bind 0.0.0.0:8001 --workers 3 --threads 2  --timeout 1800"
